@@ -1,8 +1,8 @@
-// Mi Presupuesto - service worker: guarda la app en el celular para que abra rápido y Chrome la pueda instalar.
-// Siempre intenta bajar la versión más nueva; si no hay internet usa la guardada. Los datos (Google) y la IA
-// (Gemini) no pasan por aquí.
-const CACHE = 'presupuesto-v1';
-const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+// Mi Presupuesto (Firebase) - service worker: guarda la app en el celular para que abra rápido y Chrome la pueda instalar.
+// La app siempre intenta bajar la versión más nueva; si no hay internet usa la guardada. Las librerías de Firebase
+// (versión fija) se guardan una vez. Los datos (Firestore) y la IA (Gemini) no pasan por aquí.
+const CACHE = 'presupuesto-fb-v4';
+const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
@@ -17,7 +17,13 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  if (e.request.method !== 'GET') return;
+  if (u.origin === 'https://www.gstatic.com' && u.pathname.startsWith('/firebasejs/')) {
+    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(r2 => {
+      const c = r2.clone(); caches.open(CACHE).then(ca => ca.put(e.request, c)); return r2; })));
+    return;
+  }
+  if (u.origin !== location.origin) return;
   e.respondWith(fetch(e.request)
     .then(r => { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(e.request, c)); return r; })
     .catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('./'))));
